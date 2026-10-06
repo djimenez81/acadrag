@@ -1,0 +1,10 @@
+# Copy to $ACADRAG_HOME/config.yaml and edit.
+# Only the keys you want to change need to be present; everything else
+# falls back to configs/default.yaml (deep-merged).
+
+database:
+  url: "sqlite:///{home}/acadrag.sqlite"
+
+# Example: point acadrag at an existing inbox instead of the managed one.
+# paths:
+#   inbox: /mnt/data/incoming_pdfs

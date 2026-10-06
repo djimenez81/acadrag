@@ -1,0 +1,19 @@
+# Shipped defaults for acadrag. Users override via $ACADRAG_HOME/config.yaml.
+
+paths:
+  # All paths are resolved relative to `home` unless absolute.
+  # `home` itself is resolved from $ACADRAG_HOME or ~/.acadrag.
+  home: null
+  inbox: inbox
+  processed: processed
+  rejected: rejected
+  logs: logs
+
+database:
+  # {home} is substituted at load time.
+  url: "sqlite:///{home}/acadrag.sqlite"
+
+models: {}
+stages: {}
+taxonomies: {}
+classifiers: {}
