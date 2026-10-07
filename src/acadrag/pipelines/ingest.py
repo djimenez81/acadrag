@@ -15,6 +15,7 @@ from acadrag.config import Config
 from acadrag.domain.document import Document, DocumentStatus
 from acadrag.storage.filesystem import FileStore
 from acadrag.storage.repositories.documents import DocumentRepository
+from acadrag.storage.repositories.jobs import JobRepository
 
 log = logging.getLogger(__name__)
 
@@ -40,6 +41,7 @@ def ingest_once(
     cfg: Config,
     doc_repo: DocumentRepository,
     store: FileStore,
+    job_repo: JobRepository | None = None,
 ) -> dict:
     """Process every file currently in the inbox exactly once.
 
@@ -47,6 +49,8 @@ def ingest_once(
         cfg: Loaded configuration.
         doc_repo: Repository for document records.
         store: Filesystem helper for canonical storage.
+        job_repo: If given, enqueue a ``bibliography`` job for each
+            newly ingested document.
 
     Returns:
         A summary dict with keys ``processed``, ``duplicates``,
@@ -84,6 +88,8 @@ def ingest_once(
             status=DocumentStatus.INGESTED,
         )
         doc.id = doc_repo.add(doc)
+        if job_repo is not None:
+            job_repo.enqueue(doc.id, "bibliography")
         store.remove_from_inbox(src)
         summary["processed"] += 1
 
