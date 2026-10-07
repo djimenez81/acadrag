@@ -14,6 +14,7 @@ from acadrag.pipelines.ingest import ingest_once
 from acadrag.storage.db import make_engine
 from acadrag.storage.filesystem import FileStore
 from acadrag.storage.repositories.documents import DocumentRepository
+from acadrag.storage.repositories.jobs import JobRepository
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,10 +31,11 @@ def main() -> None:
     print(f"db        : {cfg.database.url}")
 
     engine = make_engine(cfg.database.url)
-    repo = DocumentRepository(engine)
+    doc_repo = DocumentRepository(engine)
+    job_repo = JobRepository(engine)
     store = FileStore(cfg.paths.processed, cfg.paths.rejected)
 
-    summary = ingest_once(cfg, repo, store)
+    summary = ingest_once(cfg, doc_repo, store, job_repo=job_repo)
     print(summary)
 
 
