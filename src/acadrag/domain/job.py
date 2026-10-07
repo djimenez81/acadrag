@@ -7,8 +7,14 @@ from datetime import datetime, timezone
 from enum import Enum
 
 
+def _utcnow() -> datetime:
+    """Return the current time as a timezone-aware UTC datetime."""
+    return datetime.now(timezone.utc)
+
+
 class JobStatus(str, Enum):
-    """Statuses of a job tracked by acadrag."""
+    """States a job can be in."""
+
     PENDING = "pending"
     RUNNING = "running"
     DONE = "done"
@@ -17,17 +23,26 @@ class JobStatus(str, Enum):
 
 @dataclass
 class Job:
-    """A job tracked by acadrag."""
+    """A retryable unit of work associated with a document.
+
+    Attributes:
+        doc_id: Foreign key to ``documents.id``.
+        stage: Stage name (e.g. ``"bibliography"``).
+        status: Current job status.
+        attempts: Number of times this job has been attempted.
+        last_error: Last error message, if any.
+        next_retry_at: When the job becomes eligible again, if any.
+        id: Primary key assigned by the database, if persisted.
+        created_at: UTC timestamp of creation.
+        updated_at: UTC timestamp of last update.
+    """
+
     doc_id: int
-    stage: str                    # e.g. "ingest", "bibliography", "classify"
+    stage: str
     status: JobStatus = JobStatus.PENDING
     attempts: int = 0
     last_error: str | None = None
     next_retry_at: datetime | None = None
     id: int | None = None
-    created_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
-    updated_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = field(default_factory=_utcnow)
+    updated_at: datetime = field(default_factory=_utcnow)
