@@ -23,6 +23,7 @@ def _row_to_doc(row) -> Document:
         status=DocumentStatus(row.status),
         doc_type=row.doc_type,
         intent=row.intent,
+        has_bibliography=row.has_bibliography,
         needs_review=bool(row.needs_review),
         ingested_at=row.ingested_at,
     )
@@ -44,11 +45,20 @@ class DocumentRepository(BaseRepository):
                     status=doc.status.value,
                     doc_type=doc.doc_type,
                     intent=doc.intent,
+                    has_bibliography=doc.has_bibliography,
                     needs_review=doc.needs_review,
                     ingested_at=doc.ingested_at,
                 )
             )
             return int(result.inserted_primary_key[0])
+
+    def get_by_id(self, doc_id: int) -> Document | None:
+        """Return the document with the given primary key, or None."""
+        with self.engine.begin() as conn:
+            row = conn.execute(
+                select(documents).where(documents.c.id == doc_id)
+            ).first()
+        return _row_to_doc(row) if row else None
 
     def get_by_sha256(self, sha256: str) -> Document | None:
         """Return the document with the given hash, or ``None``."""
@@ -83,6 +93,17 @@ class DocumentRepository(BaseRepository):
                 update(documents)
                 .where(documents.c.id == doc_id)
                 .values(status=status.value)
+            )
+
+    def set_has_bibliography(
+        self, doc_id: int, value: bool | None
+    ) -> None:
+        """Record whether the document has a bibliography."""
+        with self.engine.begin() as conn:
+            conn.execute(
+                update(documents)
+                .where(documents.c.id == doc_id)
+                .values(has_bibliography=value)
             )
 
     def count(self) -> int:
