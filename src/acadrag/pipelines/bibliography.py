@@ -6,7 +6,7 @@ folder, insert rows into the ``bibliography`` table, and mark the job
 done or failed according to the error type.
 
 Error taxonomy:
-  * GrobidUnavailable      -> keep PENDING, retry with backoff.
+  * GrobidUnavailable      -> keep PENDING, retry later.
   * GrobidError (other)    -> FAILED, record error.
   * Empty/garbled TEI      -> FAILED, has_bibliography stays NULL.
   * Valid TEI, no refs     -> DONE, has_bibliography = False.
@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from acadrag.config import Config
@@ -39,22 +38,6 @@ log = logging.getLogger(__name__)
 STAGE = "bibliography"
 
 
-def _utcnow() -> datetime:
-    """Return the current time as a timezone-aware UTC datetime."""
-    return datetime.now(timezone.utc)
-
-
-def _backend_available(client: GrobidClient) -> bool:
-    """Return True if Grobid answers a cheap probe request."""
-    import requests
-    try:
-        requests.get(f"{client.base_url}/api/version",
-                     timeout=5).raise_for_status()
-        return True
-    except Exception:
-        return False
-
-
 def _process_one(
     doc,
     grobid: GrobidClient,
@@ -63,6 +46,14 @@ def _process_one(
     min_refs: int,
 ) -> tuple[JobStatus, str | None]:
     """Process a single bibliography job.
+
+    Args:
+        doc: Document row to process.
+        grobid: Grobid HTTP client.
+        doc_repo: Repository for documents.
+        biblio_repo: Repository for references.
+        min_refs: Minimum references to consider a bibliography
+            present.
 
     Returns:
         A ``(status, error)`` pair for the job.
@@ -99,7 +90,6 @@ def run_pending(
     biblio_repo: BibliographyRepository,
     *,
     max_jobs: int = 10,
-    backoff_seconds: int = 300,
     min_refs: int = 1,
 ) -> dict:
     """Process up to ``max_jobs`` pending bibliography jobs.
@@ -111,7 +101,6 @@ def run_pending(
         job_repo: Repository for jobs.
         biblio_repo: Repository for references.
         max_jobs: Upper bound on jobs processed in this call.
-        backoff_seconds: Delay before retrying an unavailable job.
         min_refs: Minimum references to consider a bibliography
             present.
 
@@ -120,7 +109,7 @@ def run_pending(
     """
     summary = {"done": 0, "failed": 0, "retried": 0, "skipped": 0}
 
-    if not _backend_available(grobid):
+    if not grobid.is_available():
         log.warning("Grobid not reachable; skipping run.")
         return summary
 
@@ -129,10 +118,14 @@ def run_pending(
         if job is None:
             break
 
-        doc = doc_repo.get_by_sha256(_sha_for_doc(doc_repo, job.doc_id))
+        doc = doc_repo.get_by_id(job.doc_id)
         if doc is None:
-            job_repo.mark(job.id, JobStatus.FAILED,
-                          error="document row missing", bump_attempts=True)
+            job_repo.mark(
+                job.id,
+                JobStatus.FAILED,
+                error="document row missing",
+                bump_attempts=True,
+            )
             summary["failed"] += 1
             continue
 
@@ -141,28 +134,28 @@ def run_pending(
         )
 
         if status is JobStatus.PENDING:
-            job_repo.mark(job.id, JobStatus.PENDING,
-                          error=error, bump_attempts=True)
+            job_repo.mark(
+                job.id,
+                JobStatus.PENDING,
+                error=error,
+                bump_attempts=True,
+            )
             summary["retried"] += 1
         elif status is JobStatus.FAILED:
-            job_repo.mark(job.id, JobStatus.FAILED,
-                          error=error, bump_attempts=True)
+            job_repo.mark(
+                job.id,
+                JobStatus.FAILED,
+                error=error,
+                bump_attempts=True,
+            )
             summary["failed"] += 1
         else:
-            job_repo.mark(job.id, JobStatus.DONE,
-                          error=None, bump_attempts=True)
+            job_repo.mark(
+                job.id,
+                JobStatus.DONE,
+                error=None,
+                bump_attempts=True,
+            )
             summary["done"] += 1
 
     return summary
-
-
-def _sha_for_doc(doc_repo: DocumentRepository, doc_id: int) -> str:
-    """Return the sha256 for a document id (small helper)."""
-    # The repository does not expose get_by_id; use a scan for now.
-    with doc_repo.engine.begin() as conn:
-        from acadrag.storage.db import documents
-        from sqlalchemy import select
-        row = conn.execute(
-            select(documents.c.sha256).where(documents.c.id == doc_id)
-        ).first()
-    return row.sha256 if row else ""
