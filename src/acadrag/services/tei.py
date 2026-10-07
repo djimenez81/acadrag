@@ -5,6 +5,9 @@ absent rather than guessed. The raw ``<biblStruct>`` text is preserved
 in every record so nothing is lost.
 """
 
+# TODO(stage2.1): expose a `quality` estimate per parsed reference
+# so the repository can persist it without re-parsing TEI.
+
 from __future__ import annotations
 
 import re

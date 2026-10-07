@@ -3,6 +3,9 @@
 The schema is intentionally minimal and grows as stages are added.
 """
 
+# TODO(stage2.1): add `quality varchar` column once the deterministic
+# quality rules are settled. See BibliographyRepository for details.
+
 from __future__ import annotations
 
 from sqlalchemy import (

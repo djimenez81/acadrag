@@ -14,6 +14,13 @@ from acadrag.storage.repositories.base import BaseRepository
 class BibliographyRepository(BaseRepository):
     """Read/write access to the ``bibliography`` table."""
 
+    # TODO(stage2.1): add a deterministic `quality` column
+    # (ok | partial | garbled) computed at insertion time, based on
+    # presence of title / year / authors. Grobid's reference parsing
+    # leaves ~10% of entries structurally valid but semantically
+    # wrong; a later LLM repair stage will target only the flagged
+    # rows. See discussion around the first 105-ref batch.
+
     def replace_for_document(
         self, source_doc_id: int,
         refs: list[dict[str, Any]]
