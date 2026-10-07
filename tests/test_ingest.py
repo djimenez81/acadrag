@@ -1,5 +1,7 @@
 """Tests for the ingest stage."""
 
+import hashlib
+
 from acadrag.pipelines.ingest import ingest_once, sha256_of
 from acadrag.storage.db import make_engine
 from acadrag.storage.filesystem import FileStore
@@ -36,6 +38,7 @@ def test_ingest_moves_and_records(cfg):
     doc = repo.get_by_sha256(digest)
     assert doc is not None
     assert doc.stored_path.name == "original.pdf"
+
 
 def test_ingest_is_idempotent(cfg):
     """Re-ingesting the same content is recorded as a duplicate."""
