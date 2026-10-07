@@ -23,6 +23,7 @@ _DEFAULT_CONFIG_PATH = _PKG_ROOT / "configs" / "default.yaml"
 
 
 def _deep_merge(base: dict, overlay: dict) -> dict:
+    """Merge two dictionaries recursively."""
     out = dict(base)
     for k, v in overlay.items():
         if k in out and isinstance(out[k], dict) and isinstance(v, dict):
@@ -33,6 +34,7 @@ def _deep_merge(base: dict, overlay: dict) -> dict:
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:
+    """Read a YAML file and return its contents as a dictionary."""
     if not path.exists():
         return {}
     with path.open("r", encoding="utf-8") as f:
@@ -40,6 +42,7 @@ def _read_yaml(path: Path) -> dict[str, Any]:
 
 
 def _resolve_home(explicit: Path | None) -> Path:
+    """Resolve the home directory based on the specified precedence."""
     if explicit is not None:
         return explicit.expanduser().resolve()
     env = os.environ.get("ACADRAG_HOME")

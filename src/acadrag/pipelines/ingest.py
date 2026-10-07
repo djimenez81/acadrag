@@ -27,7 +27,11 @@ def sha256_of(path: Path, chunk_size: int = 1 << 20) -> str:
     return h.hexdigest()
 
 
-def ingest_once(cfg: Config, doc_repo: DocumentRepository, store: FileStore) -> dict:
+def ingest_once(
+    cfg: Config,
+    doc_repo: DocumentRepository,
+    store: FileStore
+) -> dict:
     """Process every file currently in the inbox exactly once.
 
     Returns a small summary dict: {processed, duplicates, rejected, errors}.

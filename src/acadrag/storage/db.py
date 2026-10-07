@@ -8,7 +8,15 @@ from __future__ import annotations
 from pathlib import Path
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, ForeignKey, Integer, MetaData, String, Table, Text,
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    Text,
     create_engine,
 )
 from sqlalchemy.engine import Engine

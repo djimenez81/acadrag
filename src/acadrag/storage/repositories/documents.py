@@ -65,8 +65,9 @@ class DocumentRepository(BaseRepository):
     def update_status(self, doc_id: int, status: DocumentStatus) -> None:
         with self.engine.begin() as conn:
             conn.execute(
-                update(documents).where(documents.c.id == doc_id).values(status=status.value)
-            )
+                update(documents).where(documents.c.id == doc_id).values(
+                    status=status.value
+            ))
 
     def count(self) -> int:
         with self.engine.begin() as conn:

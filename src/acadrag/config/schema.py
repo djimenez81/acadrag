@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 
 class PathsConfig(BaseModel):
+    """Configuration settings for file paths."""
     home: Path | None = None
     inbox: Path = Path("inbox")
     processed: Path = Path("processed")
@@ -26,18 +27,36 @@ class PathsConfig(BaseModel):
         home = self.home
         return PathsConfig(
             home=home,
-            inbox=(home / self.inbox) if not self.inbox.is_absolute() else self.inbox,
-            processed=(home / self.processed) if not self.processed.is_absolute() else self.processed,
-            rejected=(home / self.rejected) if not self.rejected.is_absolute() else self.rejected,
-            logs=(home / self.logs) if not self.logs.is_absolute() else self.logs,
+            inbox=(
+                home / self.inbox
+                if not self.inbox.is_absolute()
+                else self.inbox
+            ),
+            processed=(
+                home / self.processed
+                if not self.processed.is_absolute()
+                else self.processed
+            ),
+            rejected=(
+                home / self.rejected
+                if not self.rejected.is_absolute()
+                else self.rejected
+            ),
+            logs=(
+                home / self.logs
+                if not self.logs.is_absolute()
+                else self.logs
+            ),
         )
 
 
 class DatabaseConfig(BaseModel):
+    """Configuration settings for the database."""
     url: str
 
 
 class Config(BaseModel):
+    """Top-level configuration model that aggregates other configurations."""
     paths: PathsConfig
     database: DatabaseConfig
     models: dict = Field(default_factory=dict)

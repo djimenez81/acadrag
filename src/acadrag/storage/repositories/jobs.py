@@ -52,8 +52,12 @@ class JobRepository(BaseRepository):
         with self.engine.begin() as conn:
             if bump_attempts:
                 conn.execute(
-                    update(jobs).where(jobs.c.id == job_id)
-                    .values(attempts=jobs.c.attempts + 1, **values)
+                    update(jobs).where(jobs.c.id == job_id).values(
+                        attempts=jobs.c.attempts + 1,
+                        **values
+                    )
                 )
             else:
-                conn.execute(update(jobs).where(jobs.c.id == job_id).values(**values))
+                conn.execute(update(jobs).where(jobs.c.id == job_id).values(
+                    **values
+                ))

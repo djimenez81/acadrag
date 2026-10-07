@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 class DocumentStatus(str, Enum):
+    """Statuses of a document tracked by acadrag."""
     INGESTED = "ingested"        # hashed, moved into processed/, DB row exists
     CONVERTED = "converted"      # markdown available
     BIBLIO_DONE = "biblio_done"
@@ -22,6 +23,7 @@ class DocumentStatus(str, Enum):
 
 @dataclass
 class Document:
+    """A document tracked by acadrag."""
     sha256: str
     original_name: str
     original_path: Path           # where it was picked up from
@@ -32,4 +34,6 @@ class Document:
     intent: str | None = None     # e.g., research / teaching / competition
     needs_review: bool = False
     id: int | None = None
-    ingested_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    ingested_at: datetime = field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
