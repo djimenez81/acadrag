@@ -1,8 +1,8 @@
 """Stage 1: ingest.
 
 Scan the inbox, hash each file, decide seen/unseen, and route it to
-processed/ (with DB record) or rejected/. The ingest pipeline is
-idempotent: re-running on the same file is a no-op.
+``processed/`` (with a DB record) or ``rejected/``. Idempotent: re-
+running on the same inbox is a no-op.
 """
 
 from __future__ import annotations
@@ -20,37 +20,56 @@ log = logging.getLogger(__name__)
 
 
 def sha256_of(path: Path, chunk_size: int = 1 << 20) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for block in iter(lambda: f.read(chunk_size), b""):
-            h.update(block)
-    return h.hexdigest()
+    """Return the hex SHA-256 digest of the file at ``path``.
+
+    Args:
+        path: File to hash.
+        chunk_size: Read size in bytes per iteration.
+
+    Returns:
+        Lowercase hex digest.
+    """
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(chunk_size), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def ingest_once(
     cfg: Config,
     doc_repo: DocumentRepository,
-    store: FileStore
+    store: FileStore,
 ) -> dict:
     """Process every file currently in the inbox exactly once.
 
-    Returns a small summary dict: {processed, duplicates, rejected, errors}.
+    Args:
+        cfg: Loaded configuration.
+        doc_repo: Repository for document records.
+        store: Filesystem helper for canonical storage.
+
+    Returns:
+        A summary dict with keys ``processed``, ``duplicates``,
+        ``rejected``, and ``errors``.
     """
-    summary = {"processed": 0, "duplicates": 0, "rejected": 0, "errors": 0}
+    summary = {
+        "processed": 0,
+        "duplicates": 0,
+        "rejected": 0,
+        "errors": 0,
+    }
     inbox = cfg.paths.inbox
 
     for src in sorted(p for p in inbox.iterdir() if p.is_file()):
         try:
             digest = sha256_of(src)
-        except OSError as e:
-            log.warning("Could not hash %s: %s", src, e)
+        except OSError as exc:
+            log.warning("Could not hash %s: %s", src, exc)
             store.reject(src, "unreadable")
             summary["errors"] += 1
             continue
 
-        existing = doc_repo.get_by_sha256(digest)
-        if existing is not None:
-            # Already known: discard the new copy.
+        if doc_repo.get_by_sha256(digest) is not None:
             store.reject(src, "duplicate")
             summary["duplicates"] += 1
             continue
