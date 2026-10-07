@@ -1,6 +1,7 @@
-"""Run Stage 1 (ingest) once against $ACADRAG_HOME.
+"""Run Stage 1 (ingest) once against ``$ACADRAG_HOME``.
 
-Usage:
+Usage::
+
     python examples/run_ingest.py
 """
 
@@ -14,10 +15,14 @@ from acadrag.storage.db import make_engine
 from acadrag.storage.filesystem import FileStore
 from acadrag.storage.repositories.documents import DocumentRepository
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s %(name)s: %(message)s",
+)
 
 
 def main() -> None:
+    """Load config, open the DB, and ingest the inbox once."""
     cfg = load_config()
     print(f"home      : {cfg.paths.home}")
     print(f"inbox     : {cfg.paths.inbox}")
