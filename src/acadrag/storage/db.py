@@ -1,11 +1,9 @@
-"""SQLAlchemy Core engine + schema creation.
+"""SQLAlchemy Core engine and schema definition.
 
-Schema is intentionally minimal for now; tables are added as stages land.
+The schema is intentionally minimal and grows as stages are added.
 """
 
 from __future__ import annotations
-
-from pathlib import Path
 
 from sqlalchemy import (
     Boolean,
@@ -24,7 +22,8 @@ from sqlalchemy.engine import Engine
 metadata = MetaData()
 
 documents = Table(
-    "documents", metadata,
+    "documents",
+    metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("sha256", String(64), unique=True, nullable=False),
     Column("original_name", String, nullable=False),
@@ -39,7 +38,8 @@ documents = Table(
 )
 
 jobs = Table(
-    "jobs", metadata,
+    "jobs",
+    metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("doc_id", Integer, ForeignKey("documents.id"), nullable=False),
     Column("stage", String, nullable=False),
@@ -53,7 +53,14 @@ jobs = Table(
 
 
 def make_engine(url: str) -> Engine:
-    """Create an engine and ensure the schema exists."""
+    """Create a SQLAlchemy engine and ensure the schema exists.
+
+    Args:
+        url: SQLAlchemy database URL.
+
+    Returns:
+        A configured :class:`Engine` with all tables created.
+    """
     engine = create_engine(url, future=True)
     metadata.create_all(engine)
     return engine
