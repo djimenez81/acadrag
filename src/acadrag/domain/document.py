@@ -40,6 +40,7 @@ class Document:
         status: Current lifecycle status.
         doc_type: Taxonomy label (e.g. ``"paper"``), if classified.
         intent: Intent label (e.g. ``"research"``), if classified.
+        has_bibliography: True/False/None (unknown).
         needs_review: True if the user must resolve ambiguity.
         id: Primary key assigned by the database, if persisted.
         ingested_at: UTC timestamp of ingestion.
@@ -53,6 +54,7 @@ class Document:
     status: DocumentStatus = DocumentStatus.INGESTED
     doc_type: str | None = None
     intent: str | None = None
+    has_bibliography: bool | None = None
     needs_review: bool = False
     id: int | None = None
     ingested_at: datetime = field(default_factory=_utcnow)
