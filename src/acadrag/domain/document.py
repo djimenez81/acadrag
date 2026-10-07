@@ -8,10 +8,16 @@ from enum import Enum
 from pathlib import Path
 
 
+def _utcnow() -> datetime:
+    """Return the current time as a timezone-aware UTC datetime."""
+    return datetime.now(timezone.utc)
+
+
 class DocumentStatus(str, Enum):
-    """Statuses of a document tracked by acadrag."""
-    INGESTED = "ingested"        # hashed, moved into processed/, DB row exists
-    CONVERTED = "converted"      # markdown available
+    """Lifecycle states a document passes through."""
+
+    INGESTED = "ingested"
+    CONVERTED = "converted"
     BIBLIO_DONE = "biblio_done"
     CLASSIFIED = "classified"
     CHUNKED = "chunked"
@@ -23,17 +29,30 @@ class DocumentStatus(str, Enum):
 
 @dataclass
 class Document:
-    """A document tracked by acadrag."""
+    """A single file tracked by acadrag.
+
+    Attributes:
+        sha256: Content hash; the document's identity.
+        original_name: Filename as provided by the user.
+        original_path: Path the file was picked up from.
+        stored_path: Canonical location under ``paths.processed``.
+        size_bytes: File size in bytes.
+        status: Current lifecycle status.
+        doc_type: Taxonomy label (e.g. ``"paper"``), if classified.
+        intent: Intent label (e.g. ``"research"``), if classified.
+        needs_review: True if the user must resolve ambiguity.
+        id: Primary key assigned by the database, if persisted.
+        ingested_at: UTC timestamp of ingestion.
+    """
+
     sha256: str
     original_name: str
-    original_path: Path           # where it was picked up from
-    stored_path: Path             # canonical location under processed/
+    original_path: Path
+    stored_path: Path
     size_bytes: int
     status: DocumentStatus = DocumentStatus.INGESTED
-    doc_type: str | None = None   # taxonomy label (paper, book, ...)
-    intent: str | None = None     # e.g., research / teaching / competition
+    doc_type: str | None = None
+    intent: str | None = None
     needs_review: bool = False
     id: int | None = None
-    ingested_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    ingested_at: datetime = field(default_factory=_utcnow)
