@@ -33,6 +33,7 @@ documents = Table(
     Column("status", String, nullable=False, default="ingested"),
     Column("doc_type", String, nullable=True),
     Column("intent", String, nullable=True),
+    Column("has_bibliography", Boolean, nullable=True),
     Column("needs_review", Boolean, nullable=False, default=False),
     Column("ingested_at", DateTime, nullable=False),
 )
@@ -49,6 +50,27 @@ jobs = Table(
     Column("next_retry_at", DateTime, nullable=True),
     Column("created_at", DateTime, nullable=False),
     Column("updated_at", DateTime, nullable=False),
+)
+
+bibliography = Table(
+    "bibliography",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column(
+        "source_doc_id",
+        Integer,
+        ForeignKey("documents.id"),
+        nullable=False,
+    ),
+    Column("ordinal", Integer, nullable=False),
+    Column("raw_ref", Text, nullable=False),
+    Column("title", Text, nullable=True),
+    Column("authors_json", Text, nullable=True),
+    Column("year", Integer, nullable=True),
+    Column("venue", Text, nullable=True),
+    Column("doi", String, nullable=True),
+    Column("arxiv_id", String, nullable=True),
+    Column("resolved_sha256", String(64), nullable=True),
 )
 
 
