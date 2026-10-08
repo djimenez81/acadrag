@@ -90,6 +90,7 @@ def ingest_once(
         doc.id = doc_repo.add(doc)
         if job_repo is not None:
             job_repo.enqueue(doc.id, "bibliography")
+            job_repo.enqueue(doc.id, "convert")
         store.remove_from_inbox(src)
         summary["processed"] += 1
 

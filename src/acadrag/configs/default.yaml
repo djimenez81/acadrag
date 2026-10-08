@@ -13,7 +13,25 @@ database:
   # {home} is substituted at load time.
   url: "sqlite:///{home}/acadrag.sqlite"
 
+stages:
+  convert:
+    backend: marker
+    fallback: null
+    device: cuda
+    retries: 2
+    sanity:
+      min_word_ratio: 0.3
+    marker:
+      mode: balanced
+      redo_inline_math: true
+      use_llm: false
+      llm_service: marker.services.ollama.OllamaService
+      ollama_base_url: http://localhost:11434
+      ollama_model: llama3.2-vision
+      max_concurrency: 3
+    describe_images:
+      enabled: false
+
 models: {}
-stages: {}
 taxonomies: {}
 classifiers: {}

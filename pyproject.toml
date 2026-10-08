@@ -23,6 +23,8 @@ dev = [
     "pytest-cov>=5.0",
     "ruff>=0.5",
 ]
+marker = ["marker-pdf>=1.0"]
+docling = ["docling>=2.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
