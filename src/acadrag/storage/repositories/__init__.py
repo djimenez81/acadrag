@@ -1,9 +1,13 @@
-from acadrag.storage.repositories.bibliography import BibliographyRepository
+from acadrag.storage.repositories.document_metadata import (
+    DocumentMetadataRepository,
+)
 from acadrag.storage.repositories.documents import DocumentRepository
 from acadrag.storage.repositories.jobs import JobRepository
+from acadrag.storage.repositories.references import ReferencesRepository
 
 __all__ = [
-    "BibliographyRepository",
+    "DocumentMetadataRepository",
     "DocumentRepository",
     "JobRepository",
+    "ReferencesRepository",
 ]
