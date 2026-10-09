@@ -15,6 +15,7 @@ dependencies = [
     "sqlalchemy>=2.0",
     "jinja2>=3.1",
     "requests>=2.31",
+    "bibtexparser>=1.4",
 ]
 
 [project.optional-dependencies]

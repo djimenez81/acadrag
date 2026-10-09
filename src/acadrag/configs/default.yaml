@@ -17,13 +17,14 @@ stages:
   convert:
     backend: marker
     fallback: null
-    device: cuda
+    device: cpu # cuda
     retries: 2
     sanity:
       min_word_ratio: 0.3
     marker:
-      mode: balanced
-      redo_inline_math: true
+      mode: fast
+      # disable_ocr: true
+      redo_inline_math:  true
       use_llm: false
       llm_service: marker.services.ollama.OllamaService
       ollama_base_url: http://localhost:11434
