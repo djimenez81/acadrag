@@ -15,9 +15,10 @@ from acadrag.pipelines.bibliography import run_pending
 from acadrag.services.grobid import GrobidClient
 from acadrag.storage.db import make_engine
 from acadrag.storage.repositories import (
-    BibliographyRepository,
+    DocumentMetadataRepository,
     DocumentRepository,
     JobRepository,
+    ReferencesRepository,
 )
 
 logging.basicConfig(
@@ -38,7 +39,8 @@ def main() -> None:
         GrobidClient(),
         DocumentRepository(engine),
         JobRepository(engine),
-        BibliographyRepository(engine),
+        DocumentMetadataRepository(engine),
+        ReferencesRepository(engine),
         max_jobs=max_jobs,
     )
     print(summary)

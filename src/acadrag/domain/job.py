@@ -13,11 +13,22 @@ def _utcnow() -> datetime:
 
 
 class JobStatus(str, Enum):
-    """States a job can be in."""
+    """States a job can be in.
+
+    Attributes:
+        PENDING: Eligible to be picked up by the next run.
+        RUNNING: Currently being processed.
+        DONE: Completed successfully.
+        GAVE_UP: Terminal; attempts exhausted. See ``last_error`` for
+            the reason and ``documents.needs_review`` on the parent.
+        FAILED: Terminal; the code itself could not proceed (bug,
+            invalid state). Not for external-service outages.
+    """
 
     PENDING = "pending"
     RUNNING = "running"
     DONE = "done"
+    GAVE_UP = "gave_up"
     FAILED = "failed"
 
 

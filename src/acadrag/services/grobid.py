@@ -99,3 +99,39 @@ class GrobidClient:
                 f"Grobid {response.status_code}: {response.text[:200]}"
             )
         return response.text
+
+    def process_header(self, pdf_path: Path) -> str:
+        """Send ``pdf_path`` to Grobid's header endpoint.
+
+        Returns the raw BibTeX response body.
+
+        Raises:
+            GrobidUnavailable: On connection errors or 5xx responses.
+            GrobidError: On any other non-2xx response.
+        """
+        url = f"{self.base_url}/api/processHeaderDocument"
+        try:
+            with pdf_path.open("rb") as handle:
+                response = requests.post(
+                    url,
+                    files={
+                        "input": (
+                            pdf_path.name,
+                            handle,
+                            "application/pdf",
+                        )
+                    },
+                    timeout=self.timeout,
+                )
+        except requests.RequestException as exc:
+            raise GrobidUnavailable(str(exc)) from exc
+
+        if 500 <= response.status_code < 600:
+            raise GrobidUnavailable(
+                f"Grobid {response.status_code}: {response.text[:200]}"
+            )
+        if not response.ok:
+            raise GrobidError(
+                f"Grobid {response.status_code}: {response.text[:200]}"
+            )
+        return response.text

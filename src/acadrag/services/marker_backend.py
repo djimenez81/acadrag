@@ -83,6 +83,8 @@ class MarkerBackend:
     def convert(self, pdf_path: Path) -> ConversionResult:
         """Convert ``pdf_path`` to Markdown via Marker.
 
+        Extracted images are saved under ``<pdf_dir>/images/``.
+
         Args:
             pdf_path: Path to the PDF file.
 
@@ -90,9 +92,12 @@ class MarkerBackend:
             A :class:`ConversionResult` with Markdown and metadata.
 
         Raises:
-            RuntimeError: If Marker is not installed or conversion fails.
+            RuntimeError: If Marker is not installed or conversion
+                fails.
         """
         self._ensure_converter()
+        from io import BytesIO
+
         from marker.output import text_from_rendered
 
         started = time.monotonic()
@@ -100,9 +105,25 @@ class MarkerBackend:
         text, _, images = text_from_rendered(rendered)
         duration = time.monotonic() - started
 
+        if images:
+            images_dir = pdf_path.parent / "images"
+            images_dir.mkdir(parents=True, exist_ok=True)
+            for filename, image_object in images.items():
+                target = images_dir / filename
+                fmt = target.suffix.lstrip(".").upper() or "PNG"
+                if fmt == "JPG":
+                    fmt = "JPEG"
+                if fmt not in ("JPEG", "PNG"):
+                    fmt = "PNG"
+                    target = target.with_suffix(".png")
+                buf = BytesIO()
+                image_object.save(buf, format=fmt)
+                target.write_bytes(buf.getvalue())
+
         metadata = dict(rendered.metadata or {})
         metadata["backend"] = "marker"
         metadata["duration_seconds"] = round(duration, 2)
         metadata["word_count"] = len(text.split())
+        metadata["image_count"] = len(images) if images else 0
 
         return ConversionResult(markdown=text, metadata=metadata)

@@ -1,4 +1,4 @@
-"""BibliographyRepository: persistence for extracted references."""
+"""ReferencesRepository: works cited by an ingested document."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ from typing import Any
 
 from sqlalchemy import delete, insert, select
 
-from acadrag.storage.db import bibliography
+from acadrag.storage.db import references
 from acadrag.storage.repositories.base import BaseRepository
 
 
-class BibliographyRepository(BaseRepository):
-    """Read/write access to the ``bibliography`` table."""
+class ReferencesRepository(BaseRepository):
+    """Read/write access to the ``references`` table."""
 
     # TODO(stage2.1): add a deterministic `quality` column
     # (ok | partial | garbled) computed at insertion time, based on
@@ -20,20 +20,14 @@ class BibliographyRepository(BaseRepository):
     # leaves ~10% of entries structurally valid but semantically
     # wrong; a later LLM repair stage will target only the flagged
     # rows. See discussion around the first 105-ref batch.
-
     def replace_for_document(
-        self, source_doc_id: int,
-        refs: list[dict[str, Any]]
+        self, source_doc_id: int, refs: list[dict[str, Any]]
     ) -> None:
-        """Replace all stored references for ``source_doc_id``.
-
-        Idempotent: any existing rows for this document are removed
-        first, then the new ones are inserted in order.
-        """
+        """Replace all stored references for ``source_doc_id``."""
         with self.engine.begin() as conn:
             conn.execute(
-                delete(bibliography).where(
-                    bibliography.c.source_doc_id == source_doc_id
+                delete(references).where(
+                    references.c.source_doc_id == source_doc_id
                 )
             )
             if not refs:
@@ -47,7 +41,9 @@ class BibliographyRepository(BaseRepository):
                         "ordinal": ordinal,
                         "raw_ref": ref.get("raw") or "",
                         "title": ref.get("title"),
-                        "authors_json": json.dumps(authors, ensure_ascii=False),
+                        "authors_json": json.dumps(
+                            authors, ensure_ascii=False
+                        ),
                         "year": ref.get("year"),
                         "venue": ref.get("venue"),
                         "doi": ref.get("doi"),
@@ -55,15 +51,15 @@ class BibliographyRepository(BaseRepository):
                         "resolved_sha256": None,
                     }
                 )
-            conn.execute(insert(bibliography), rows)
+            conn.execute(insert(references), rows)
 
     def list_for_document(self, source_doc_id: int) -> list[dict]:
         """Return all references for a document, ordered by ordinal."""
         with self.engine.begin() as conn:
             rows = conn.execute(
-                select(bibliography)
-                .where(bibliography.c.source_doc_id == source_doc_id)
-                .order_by(bibliography.c.ordinal)
+                select(references)
+                .where(references.c.source_doc_id == source_doc_id)
+                .order_by(references.c.ordinal)
             ).all()
         return [dict(r._mapping) for r in rows]
 

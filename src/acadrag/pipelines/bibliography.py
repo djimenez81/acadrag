@@ -1,16 +1,19 @@
-"""Stage 2: bibliography extraction via Grobid.
+"""Stage 2: document metadata and references via Grobid.
 
-For each pending ``bibliography`` job: send the stored PDF to Grobid,
-save the raw TEI XML and a parsed ``bibliography.json`` in the doc
-folder, insert rows into the ``bibliography`` table, and mark the job
-done or failed according to the error type.
+For each pending ``bibliography`` job:
 
-Error taxonomy:
-  * GrobidUnavailable      -> keep PENDING, retry later.
-  * GrobidError (other)    -> FAILED, record error.
-  * Empty/garbled TEI      -> FAILED, has_bibliography stays NULL.
-  * Valid TEI, no refs     -> DONE, has_bibliography = False.
-  * Valid TEI, N >= min    -> DONE, has_bibliography = True.
+1. Call ``processHeaderDocument``. Save the raw BibTeX to disk.
+   Parse it; if a title is present, upsert ``document_metadata`` and
+   set ``documents.has_metadata = True``; else set has_metadata = False
+   and flag needs_review.
+2. Call ``processFulltextDocument``. Save the TEI; parse references;
+   replace rows in the ``references`` table. Set has_metadata stays
+   as decided in step 1.
+
+Error handling:
+  * GrobidUnavailable  -> PENDING; on max attempts, GAVE_UP.
+  * GrobidError        -> FAILED.
+  * Header parse empty -> DONE, has_metadata = False, needs_review.
 """
 
 from __future__ import annotations
@@ -21,64 +24,71 @@ from pathlib import Path
 
 from acadrag.config import Config
 from acadrag.domain.job import JobStatus
+from acadrag.services.bibtex import parse_bibtex
 from acadrag.services.grobid import (
     GrobidClient,
     GrobidError,
     GrobidUnavailable,
 )
 from acadrag.services.tei import parse_references
-from acadrag.storage.repositories.bibliography import (
-    BibliographyRepository,
+from acadrag.storage.repositories.document_metadata import (
+    DocumentMetadataRepository,
 )
 from acadrag.storage.repositories.documents import DocumentRepository
 from acadrag.storage.repositories.jobs import JobRepository
+from acadrag.storage.repositories.references import ReferencesRepository
 
 log = logging.getLogger(__name__)
 
 STAGE = "bibliography"
+DEFAULT_MAX_ATTEMPTS = 5
 
 
 def _process_one(
     doc,
     grobid: GrobidClient,
     doc_repo: DocumentRepository,
-    biblio_repo: BibliographyRepository,
-    min_refs: int,
+    meta_repo: DocumentMetadataRepository,
+    refs_repo: ReferencesRepository,
 ) -> tuple[JobStatus, str | None]:
-    """Process a single bibliography job.
-
-    Args:
-        doc: Document row to process.
-        grobid: Grobid HTTP client.
-        doc_repo: Repository for documents.
-        biblio_repo: Repository for references.
-        min_refs: Minimum references to consider a bibliography
-            present.
-
-    Returns:
-        A ``(status, error)`` pair for the job.
-    """
+    """Process a single bibliography job."""
     pdf_path: Path = doc.stored_path
+    doc_dir = pdf_path.parent
+
+    # --- Step 1: header (document's own metadata) ---
     try:
-        tei = grobid.process_pdf(pdf_path)
+        bibtex_text = grobid.process_header(pdf_path)
     except GrobidUnavailable as exc:
         return JobStatus.PENDING, f"unavailable: {exc}"
     except GrobidError as exc:
         return JobStatus.FAILED, f"grobid error: {exc}"
 
-    doc_dir = pdf_path.parent
+    (doc_dir / "header.bib").write_text(bibtex_text, encoding="utf-8")
+    meta = parse_bibtex(bibtex_text)
+
+    if meta is not None:
+        meta_repo.upsert(doc.id, meta)
+        doc_repo.set_has_metadata(doc.id, True)
+    else:
+        doc_repo.set_has_metadata(doc.id, False)
+        doc_repo.set_needs_review(doc.id, True)
+
+    # --- Step 2: full-text (references cited by the document) ---
+    try:
+        tei = grobid.process_pdf(pdf_path)
+    except GrobidUnavailable as exc:
+        return JobStatus.PENDING, f"unavailable (fulltext): {exc}"
+    except GrobidError as exc:
+        return JobStatus.FAILED, f"grobid error (fulltext): {exc}"
+
     (doc_dir / "grobid.tei.xml").write_text(tei, encoding="utf-8")
-
     refs = parse_references(tei)
-    if not refs and not tei.strip():
-        return JobStatus.FAILED, "empty grobid response"
-
-    biblio_repo.replace_for_document(doc.id, refs)
-    (doc_dir / "bibliography.json").write_text(
+    refs_repo.replace_for_document(doc.id, refs)
+    (doc_dir / "references.json").write_text(
         json.dumps(refs, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    doc_repo.set_has_bibliography(doc.id, len(refs) >= min_refs)
+
     return JobStatus.DONE, None
 
 
@@ -87,27 +97,18 @@ def run_pending(
     grobid: GrobidClient,
     doc_repo: DocumentRepository,
     job_repo: JobRepository,
-    biblio_repo: BibliographyRepository,
+    meta_repo: DocumentMetadataRepository,
+    refs_repo: ReferencesRepository,
     *,
     max_jobs: int = 10,
-    min_refs: int = 1,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
 ) -> dict:
     """Process up to ``max_jobs`` pending bibliography jobs.
 
-    Args:
-        cfg: Loaded configuration.
-        grobid: Grobid HTTP client.
-        doc_repo: Repository for documents.
-        job_repo: Repository for jobs.
-        biblio_repo: Repository for references.
-        max_jobs: Upper bound on jobs processed in this call.
-        min_refs: Minimum references to consider a bibliography
-            present.
-
     Returns:
-        A summary dict: ``{done, failed, retried, skipped}``.
+        Summary dict: ``{done, gave_up, failed, retried}``.
     """
-    summary = {"done": 0, "failed": 0, "retried": 0, "skipped": 0}
+    summary = {"done": 0, "gave_up": 0, "failed": 0, "retried": 0}
 
     if not grobid.is_available():
         log.warning("Grobid not reachable; skipping run.")
@@ -121,40 +122,41 @@ def run_pending(
         doc = doc_repo.get_by_id(job.doc_id)
         if doc is None:
             job_repo.mark(
-                job.id,
-                JobStatus.FAILED,
-                error="document row missing",
-                bump_attempts=True,
+                job.id, JobStatus.FAILED,
+                error="document row missing", bump_attempts=True,
             )
             summary["failed"] += 1
             continue
 
         status, error = _process_one(
-            doc, grobid, doc_repo, biblio_repo, min_refs
+            doc, grobid, doc_repo, meta_repo, refs_repo
         )
 
         if status is JobStatus.PENDING:
-            job_repo.mark(
-                job.id,
-                JobStatus.PENDING,
-                error=error,
-                bump_attempts=True,
-            )
-            summary["retried"] += 1
+            attempts = job.attempts + 1
+            if attempts >= max_attempts:
+                job_repo.mark(
+                    job.id, JobStatus.GAVE_UP,
+                    error=error, bump_attempts=True,
+                )
+                doc_repo.set_needs_review(doc.id, True)
+                summary["gave_up"] += 1
+            else:
+                job_repo.mark(
+                    job.id, JobStatus.PENDING,
+                    error=error, bump_attempts=True,
+                )
+                summary["retried"] += 1
         elif status is JobStatus.FAILED:
             job_repo.mark(
-                job.id,
-                JobStatus.FAILED,
-                error=error,
-                bump_attempts=True,
+                job.id, JobStatus.FAILED,
+                error=error, bump_attempts=True,
             )
             summary["failed"] += 1
         else:
             job_repo.mark(
-                job.id,
-                JobStatus.DONE,
-                error=None,
-                bump_attempts=True,
+                job.id, JobStatus.DONE,
+                error=error, bump_attempts=True,
             )
             summary["done"] += 1
 

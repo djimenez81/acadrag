@@ -23,7 +23,7 @@ def _row_to_doc(row) -> Document:
         status=DocumentStatus(row.status),
         doc_type=row.doc_type,
         intent=row.intent,
-        has_bibliography=row.has_bibliography,
+        has_metadata=row.has_metadata,
         needs_review=bool(row.needs_review),
         ingested_at=row.ingested_at,
     )
@@ -45,7 +45,7 @@ class DocumentRepository(BaseRepository):
                     status=doc.status.value,
                     doc_type=doc.doc_type,
                     intent=doc.intent,
-                    has_bibliography=doc.has_bibliography,
+                    has_metadata=doc.has_metadata,
                     needs_review=doc.needs_review,
                     ingested_at=doc.ingested_at,
                 )
@@ -95,15 +95,24 @@ class DocumentRepository(BaseRepository):
                 .values(status=status.value)
             )
 
-    def set_has_bibliography(
+    def set_has_metadata(
         self, doc_id: int, value: bool | None
     ) -> None:
-        """Record whether the document has a bibliography."""
+        """Record whether the document's own metadata was found."""
         with self.engine.begin() as conn:
             conn.execute(
                 update(documents)
                 .where(documents.c.id == doc_id)
-                .values(has_bibliography=value)
+                .values(has_metadata=value)
+            )
+
+    def set_needs_review(self, doc_id: int, value: bool) -> None:
+        """Set the needs_review flag on a document."""
+        with self.engine.begin() as conn:
+            conn.execute(
+                update(documents)
+                .where(documents.c.id == doc_id)
+                .values(needs_review=value)
             )
 
     def count(self) -> int:
